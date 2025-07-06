@@ -5,7 +5,7 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 export default async function handler(req, res) {
   try {
     const { selfie, answers } = req.body;
-    const prompt = `Create a dreamy image showing the person living their dream life: ${answers.join(', ')}.`;
+    const prompt = `Create a dreamy, cinematic portrait of this person living their dream life, based on the following elements: ${answers.join(', ')}`;
 
     const result = await openai.images.generate({
       model: 'dall-e-3',
@@ -20,3 +20,4 @@ export default async function handler(req, res) {
     res.status(500).json({ error: 'Image generation failed' });
   }
 }
+
