@@ -36,6 +36,154 @@
   </style>
 </head>
 <body class="flex items-center justify-center p-4">
-  <!-- Full HTML from canvas is here -->
+  <main id="app" class="glass w-full max-w-md p-6 text-gray-800"></main>
+
+  <template id="question-template">
+    <div class="space-y-6">
+      <h2 id="question" class="text-xl font-semibold text-center"></h2>
+      <div id="options" class="grid gap-4"></div>
+      <button id="nextBtn" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2 rounded-lg disabled:opacity-50" disabled>Next</button>
+    </div>
+  </template>
+
+  <template id="result-template">
+    <div class="space-y-6 text-center">
+      <h2 class="text-2xl font-bold">Step into Your Dream Reality</h2>
+      <p>One more step ✨ — let the world see the <span class="font-semibold">real</span> you.</p>
+      <div id="cameraWrapper" class="space-y-4">
+        <video id="video" playsinline autoplay class="rounded-xl mx-auto shadow-lg"></video>
+        <button id="snapBtn" class="bg-pink-500 hover:bg-pink-600 text-white px-4 py-2 rounded-lg">Capture Selfie</button>
+      </div>
+      <canvas id="canvas" class="hidden"></canvas>
+      <img id="dreamImage" class="hidden mx-auto rounded-xl shadow-lg"/>
+      <div id="loader" class="hidden flex flex-col items-center justify-center space-y-2">
+        <div class="lds-ring"><div></div><div></div><div></div><div></div></div>
+        <p class="text-sm">Conjuring your Infinite Tsukuyomi…</p>
+      </div>
+      <div id="dreamMsg" class="hidden space-y-2">
+        <h3 class="text-xl font-semibold">✨ Behold your Infinite Tsukuyomi ✨</h3>
+        <p class="text-sm">Screenshot or share to manifest this vision into existence.</p>
+      </div>
+    </div>
+  </template>
+
+  <script>
+    const app = document.getElementById('app');
+    const qTpl = document.getElementById('question-template');
+    const rTpl = document.getElementById('result-template');
+
+    const quiz = {
+      current: 0,
+      answers: [],
+      questions: [
+        { q: 'Which setting feels most like home?', options: ['Ocean-front villa', 'Mountain cabin', 'Futuristic city loft', 'Quiet countryside farm'] },
+        { q: 'You wake up greeted by…', options: ['Sound of waves', 'Birdsong in the forest', 'City skyline at sunrise', 'Rolling fields & dew'] },
+        { q: 'Your perfect morning ritual is…', options: ['Yoga & meditation', 'Journaling with coffee', 'High-energy workout', 'Slow breakfast with loved ones'] },
+        { q: 'Pick a creative outlet:', options: ['Writing stories', 'Designing products', 'Cooking gourmet meals', 'Painting landscapes'] },
+        { q: 'Which companion energizes you most?', options: ['Soulmate partner', 'Tight-knit friends', 'Solo adventures', 'Loyal pet'] },
+        { q: 'Your ideal work style?', options: ['Remote & flexible', 'Leading a visionary team', 'Hands-on craftsmanship', 'Research & discovery'] },
+        { q: 'How do you give back?', options: ['Mentoring youth', 'Environmental activism', 'Innovating for humanity', 'Community volunteering'] },
+        { q: 'Your dream travel mode:', options: ['Private sailboat', 'Camper van', 'Teleport pads (why not?)', 'First-class rail'] },
+        { q: 'Pick a soundtrack vibe:', options: ['Lo-fi chillhop', 'Epic orchestral', 'Retro synthwave', 'Acoustic folk'] },
+        { q: 'Final touch — choose a mantra:', options: ['Flow like water', 'Build boldly', 'Wander & wonder', 'Love grows here'] }
+      ]
+    };
+
+    function renderQuestion() {
+      app.innerHTML = '';
+      const node = qTpl.content.cloneNode(true);
+      const qEl = node.getElementById('question');
+      const opts = node.getElementById('options');
+      const nextBtn = node.getElementById('nextBtn');
+
+      const currentQ = quiz.questions[quiz.current];
+      qEl.textContent = `Question ${quiz.current + 1} of 10 — ${currentQ.q}`;
+
+      currentQ.options.forEach(opt => {
+        const btn = document.createElement('button');
+        btn.textContent = opt;
+        btn.className = 'option w-full bg-white/70 hover:bg-white text-gray-800 py-2 rounded-lg shadow-sm';
+        btn.addEventListener('click', () => {
+          [...opts.children].forEach(b => b.classList.remove('ring', 'ring-indigo-500'));
+          btn.classList.add('ring', 'ring-indigo-500');
+          quiz.answers[quiz.current] = opt;
+          nextBtn.disabled = false;
+        });
+        opts.appendChild(btn);
+      });
+
+      nextBtn.addEventListener('click', () => {
+        if (quiz.current < quiz.questions.length - 1) {
+          quiz.current++;
+          renderQuestion();
+        } else {
+          renderResult();
+        }
+      });
+
+      app.appendChild(node);
+    }
+
+    async function renderResult() {
+      app.innerHTML = '';
+      const node = rTpl.content.cloneNode(true);
+      const video = node.getElementById('video');
+      const snapBtn = node.getElementById('snapBtn');
+      const canvas = node.getElementById('canvas');
+      const dreamImg = node.getElementById('dreamImage');
+      const loader = node.getElementById('loader');
+      const dreamMsg = node.getElementById('dreamMsg');
+
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
+        video.srcObject = stream;
+      } catch (err) {
+        console.error('Camera access denied:', err);
+        snapBtn.disabled = true;
+        snapBtn.textContent = 'Camera unavailable';
+      }
+
+      snapBtn.addEventListener('click', async () => {
+        const w = video.videoWidth;
+        const h = video.videoHeight;
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(video, 0, 0, w, h);
+        video.srcObject.getTracks().forEach(t => t.stop());
+        video.classList.add('hidden');
+        snapBtn.classList.add('hidden');
+
+        const selfieDataUrl = canvas.toDataURL('image/png');
+        loader.classList.remove('hidden');
+
+        try {
+          const generatedUrl = await generateDreamImage(selfieDataUrl, quiz.answers);
+          dreamImg.src = generatedUrl;
+          dreamImg.classList.remove('hidden');
+          dreamMsg.classList.remove('hidden');
+        } catch (e) {
+          alert('Could not generate dream image — please try again.');
+        } finally {
+          loader.classList.add('hidden');
+        }
+      });
+
+      app.appendChild(node);
+    }
+
+    async function generateDreamImage(selfieDataUrl, answers) {
+      const response = await fetch('/api/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ selfie: selfieDataUrl, answers })
+      });
+      if (!response.ok) throw new Error('Generation failed');
+      const data = await response.json();
+      return data.generatedImageUrl;
+    }
+
+    renderQuestion();
+  </script>
 </body>
 </html>
